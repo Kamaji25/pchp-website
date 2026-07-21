@@ -1,0 +1,654 @@
+<meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PCHP -- Project Hub</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
+<script src="https://unpkg.com/jscpp/dist/JSCPP.es5.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap');
+  * { font-family: 'Inter', sans-serif; }
+  .font-mono, textarea.font-mono, pre { font-family: 'Fira Code', monospace; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
+  .line-clamp-1 { display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden; }
+  .line-clamp-2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  @keyframes scaleIn { from{opacity:0; transform:scale(.95) translateY(10px);} to{opacity:1; transform:scale(1) translateY(0);} }
+  @keyframes slideIn { from{opacity:0; transform:translateX(30px);} to{opacity:1; transform:translateX(0);} }
+  .animate-fadeIn { animation: fadeIn .2s ease-out; }
+  .animate-scaleIn { animation: scaleIn .25s ease-out; }
+  .animate-slideIn { animation: slideIn .25s ease-out; }
+</style>
+</head>
+<body class="bg-slate-50">
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useMemo } = React;
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAZjBLpU2yT3t_hMP5BiCxnnd0Z7zKiiaA",
+  authDomain: "pchp-66c2e.firebaseapp.com",
+  projectId: "pchp-66c2e",
+  storageBucket: "pchp-66c2e.firebasestorage.app",
+  messagingSenderId: "753188816415",
+  appId: "1:753188816415:web:17bb5b33b31d865aebf72a",
+  measurementId: "G-BL9GFPX4E1"
+};
+const ADMIN_EMAIL = "kamaji@pchp.local";
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+const LANGS = {
+  python: { name: 'Python', icon: '🐍' },
+  c:      { name: 'C', icon: '🔧' },
+  html:   { name: 'HTML', icon: '🌐' },
+  css:    { name: 'CSS', icon: '🎨' },
+};
+const LANG_STYLES = {
+  python: { badge: 'bg-blue-100 text-blue-700 border-blue-200', grad: 'from-blue-500 to-blue-600' },
+  c:      { badge: 'bg-indigo-100 text-indigo-700 border-indigo-200', grad: 'from-indigo-500 to-indigo-600' },
+  html:   { badge: 'bg-orange-100 text-orange-700 border-orange-200', grad: 'from-orange-500 to-orange-600' },
+  css:    { badge: 'bg-pink-100 text-pink-700 border-pink-200', grad: 'from-pink-500 to-pink-600' },
+};
+const PLACEHOLDER_CODE = {
+  python: '# Write your Python code here\nprint("Hello, PCHP!")',
+  c: '#include <stdio.h>\n\nint main() {\n    printf("Hello, PCHP!\\n");\n    return 0;\n}',
+  html: '<!DOCTYPE html>\n<html>\n<head>\n<style>\n  body { font-family: sans-serif; }\n</style>\n</head>\n<body>\n  <h1>Hello, PCHP!</h1>\n</body>\n</html>',
+  css: '<!DOCTYPE html>\n<html>\n<head>\n<style>\n  body { background:#6366f1; color:white; display:flex; align-items:center; justify-content:center; height:100vh; font-family:sans-serif; }\n</style>\n</head>\n<body>\n  <h1>Hello, PCHP!</h1>\n</body>\n</html>',
+};
+
+function daysAgo(n){ const d = new Date(); d.setDate(d.getDate()-n); return d.toISOString(); }
+function formatDate(iso){ return new Date(iso).toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'}); }
+
+const seedProjects = [
+{ language:'python', title:'Fibonacci Sequence Generator', description:'Generates the first N numbers in the Fibonacci sequence.', code:'def fibonacci(n):\n    a, b = 0, 1\n    result = []\n    for _ in range(n):\n        result.append(a)\n        a, b = b, a + b\n    return result\n\nprint(fibonacci(10))', createdAt: daysAgo(12), updatedAt: daysAgo(2) },
+{ language:'python', title:'Number Palindrome Checker', description:'Checks whether numbers are palindromes.', code:'def is_palindrome(num):\n    s = str(num)\n    return s == s[::-1]\n\nfor n in [121, 123, 1331]:\n    print(n, is_palindrome(n))', createdAt: daysAgo(10), updatedAt: daysAgo(10) },
+{ language:'python', title:'Simple Calculator', description:'Basic arithmetic operations.', code:'def calc(a,b,op):\n    if op=="+": return a+b\n    if op=="-": return a-b\n    if op=="*": return a*b\n    if op=="/": return a/b\n\nprint(calc(10,5,"+"))', createdAt: daysAgo(8), updatedAt: daysAgo(1) },
+{ language:'c', title:'Bubble Sort Implementation', description:'Sorts array using bubble sort.', code:'#include <stdio.h>\nvoid bubbleSort(int arr[], int n) {\n    for (int i=0;i<n-1;i++)\n        for (int j=0;j<n-i-1;j++)\n            if (arr[j]>arr[j+1]) { int t=arr[j]; arr[j]=arr[j+1]; arr[j+1]=t; }\n}\nint main() {\n    int arr[]={64,34,25,12,22,11,90};\n    bubbleSort(arr,7);\n    for(int i=0;i<7;i++) printf("%d ", arr[i]);\n    return 0;\n}', createdAt: daysAgo(15), updatedAt: daysAgo(3) },
+{ language:'c', title:'Prime Number Checker', description:'Prints primes between 1-50.', code:'#include <stdio.h>\nint isPrime(int n){ if(n<2) return 0; for(int i=2;i*i<=n;i++) if(n%i==0) return 0; return 1; }\nint main(){ for(int i=2;i<=50;i++) if(isPrime(i)) printf("%d ", i); return 0; }', createdAt: daysAgo(9), updatedAt: daysAgo(9) },
+{ language:'c', title:'Factorial Calculator', description:'Calculates factorial recursively.', code:'#include <stdio.h>\nint factorial(int n){ return (n<=1)?1:n*factorial(n-1); }\nint main(){ for(int i=1;i<=8;i++) printf("%d! = %d\\n", i, factorial(i)); return 0; }', createdAt: daysAgo(6), updatedAt: daysAgo(1) },
+{ language:'html', title:'Personal Portfolio Landing', description:'Simple portfolio page.', code:'<!DOCTYPE html><html><head><style>body{font-family:sans-serif;background:#0f172a;color:white;text-align:center;padding:50px}</style></head><body><h1>Welcome to PCHP</h1><p>My Project Portfolio</p></body></html>', createdAt: daysAgo(20), updatedAt: daysAgo(4) },
+{ language:'html', title:'Responsive Navbar', description:'Clean navigation bar.', code:'<!DOCTYPE html><html><head><style>nav{background:#1e293b;padding:20px;color:white;display:flex;justify-content:space-between}</style></head><body><nav><div>PCHP</div><div>Home About</div></nav></body></html>', createdAt: daysAgo(14), updatedAt: daysAgo(14) },
+{ language:'html', title:'Simple Contact Form', description:'Styled contact form.', code:'<!DOCTYPE html><html><head><style>form{max-width:400px;margin:40px auto;padding:30px;background:white;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.1)}</style></head><body><form><h2>Contact Us</h2><input placeholder="Name" style="width:100%;margin:10px 0;padding:10px"><button style="width:100%;padding:12px;background:#4f46e5;color:white;border:none;border-radius:8px">Send</button></form></body></html>', createdAt: daysAgo(7), updatedAt: daysAgo(2) },
+{ language:'css', title:'Animated Button Collection', description:'CSS hover animations.', code:'<!DOCTYPE html><html><head><style>body{display:flex;gap:20px;justify-content:center;align-items:center;height:100vh;background:#0f172a}.btn{padding:14px 28px;border-radius:8px;font-weight:bold;cursor:pointer;transition:.3s;background:#6366f1;color:white;border:none}.btn:hover{transform:translateY(-4px)}</style></head><body><button class="btn">Hover Me</button></body></html>', createdAt: daysAgo(18), updatedAt: daysAgo(5) },
+{ language:'css', title:'Flexbox Card Layout', description:'Responsive card grid.', code:'<!DOCTYPE html><html><head><style>.cards{display:flex;gap:20px;flex-wrap:wrap;justify-content:center;padding:30px}.card{background:white;padding:20px;border-radius:12px;box-shadow:0 6px 16px rgba(0,0,0,.1);width:200px}</style></head><body><div class="cards"><div class="card">Project 1</div><div class="card">Project 2</div></div></body></html>', createdAt: daysAgo(11), updatedAt: daysAgo(11) },
+{ language:'css', title:'CSS Grid Gallery', description:'Modern gallery using CSS Grid.', code:'<!DOCTYPE html><html><head><style>body{padding:20px;background:#111827}.gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.gallery div{height:150px;background:#6366f1;border-radius:8px}</style></head><body><div class="gallery"><div></div><div></div><div></div><div></div></div></body></html>', createdAt: daysAgo(5), updatedAt: daysAgo(1) },
+];
+
+async function seedIfEmptyOnce(){
+  const snap = await db.collection('projects').limit(1).get();
+  if (snap.empty) {
+    const batch = db.batch();
+    seedProjects.forEach(p => batch.set(db.collection('projects').doc(), p));
+    await batch.commit();
+  }
+}
+
+let pyodideInstance = null;
+let pyodidePromise = null;
+function getPyodide(){
+  if (pyodideInstance) return Promise.resolve(pyodideInstance);
+  if (!pyodidePromise) {
+    if (typeof loadPyodide === 'undefined') return Promise.reject(new Error('Python engine failed to load.'));
+    pyodidePromise = loadPyodide().then(p => { pyodideInstance = p; return p; });
+  }
+  return pyodidePromise;
+}
+
+const PlayIcon = ({big}) => { const s=big?28:16; return (<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 3l14 9-14 9V3z" fill="currentColor" stroke="none"/></svg>);};
+const PlusIcon = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>);
+const PencilIcon = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>);
+const TrashIcon = ({big}) => { const s=big?28:16; return (<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6h16z"/></svg>);};
+const XIcon = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>);
+const MenuIcon = () => (<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>);
+const LogOutIcon = () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>);
+const LockIcon = ({big}) => { const s=big?26:16; return (<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>);};
+const HomeIcon = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1V9.5z"/></svg>);
+const Spinner = ({big}) => { const s=big?32:16; return (<svg className="animate-spin" width={s} height={s} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity=".25"/><path d="M22 12a10 10 0 00-10-10" stroke="currentColor" strokeWidth="4"/></svg>);};
+
+function ToastStack({toasts}){
+  return (
+    <div className="fixed bottom-5 right-5 z-[60] flex flex-col gap-2 items-end">
+      {toasts.map(t => (
+        <div key={t.id} className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white animate-slideIn ${t.type==='error'?'bg-red-600':'bg-slate-800'}`}>
+          {t.type==='error' ? '⚠️' : '✅'} {t.msg}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ModalShell({children, onClose, width='max-w-lg'}){
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn" onClick={onClose}>
+      <div className={`bg-white rounded-2xl shadow-2xl w-full ${width} p-6 relative animate-scaleIn max-h-[90vh] overflow-y-auto`} onClick={e=>e.stopPropagation()}>
+        <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700"><XIcon/></button>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function CardSkeleton(){
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 p-5 animate-pulse">
+      <div className="h-5 w-24 bg-slate-200 rounded-full mb-4"></div>
+      <div className="h-4 w-3/4 bg-slate-200 rounded mb-2"></div>
+      <div className="h-3 w-full bg-slate-100 rounded mb-1"></div>
+      <div className="h-3 w-5/6 bg-slate-100 rounded mb-4"></div>
+      <div className="h-8 w-20 bg-slate-200 rounded-lg"></div>
+    </div>
+  );
+}
+
+function EmptyState({lang, isAdmin, onAdd}){
+  const info = LANGS[lang];
+  return (
+    <div className="flex flex-col items-center justify-center text-center py-20 bg-white rounded-2xl border-2 border-dashed border-slate-200">
+      <div className="text-5xl mb-4">{info.icon}</div>
+      <h3 className="text-lg font-semibold text-slate-700">No {info.name} projects yet</h3>
+      <p className="text-slate-400 text-sm mt-1 max-w-xs">{isAdmin ? 'Add your first project.' : 'Check back later.'}</p>
+      {isAdmin && (
+        <button onClick={onAdd} className="mt-5 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 text-white text-sm font-medium hover:bg-slate-900 transition">
+          <PlusIcon/> Add Project
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ProjectCard({project, isAdmin, onRun, onEdit, onDelete}){
+  const style = LANG_STYLES[project.language];
+  return (
+    <div className="group bg-white rounded-2xl border border-slate-200 p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 flex flex-col">
+      <div className="flex items-start justify-between mb-3">
+        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${style.badge}`}>
+          {LANGS[project.language].icon} {LANGS[project.language].name}
+        </span>
+        <span className="text-[11px] text-slate-400">{formatDate(project.updatedAt)}</span>
+      </div>
+      <h3 className="font-semibold text-slate-800 text-lg mb-1 line-clamp-1">{project.title}</h3>
+      <p className="text-sm text-slate-500 mb-4 line-clamp-2 flex-1">{project.description}</p>
+      <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
+        <button onClick={()=>onRun(project)} className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-gradient-to-r ${style.grad} text-white hover:opacity-90 transition`}>
+          <PlayIcon/> Run
+        </button>
+        {isAdmin && (
+          <>
+            <button onClick={()=>onEdit(project)} className="ml-auto p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-indigo-600 transition"><PencilIcon/></button>
+            <button onClick={()=>onDelete(project)} className="p-2 rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600 transition"><TrashIcon/></button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LoginModal({onClose, onLogin}){
+  const [id, setId] = useState('');
+  const [pass, setPass] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  async function submit(e){
+    e.preventDefault();
+    setLoading(true); setError('');
+    const ok = await onLogin(id, pass);
+    if(!ok) setError('Invalid ID or password.');
+    setLoading(false);
+  }
+  return (
+    <ModalShell onClose={onClose} width="max-w-sm">
+      <div className="text-center mb-6">
+        <div className="w-14 h-14 mx-auto rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600 mb-3"><LockIcon big/></div>
+        <h3 className="text-xl font-bold text-slate-800">Admin Login</h3>
+        <p className="text-sm text-slate-500 mt-1">Restricted access -- Admin only</p>
+      </div>
+      <form onSubmit={submit} className="space-y-4">
+        <div>
+          <label className="text-sm font-medium text-slate-600">Admin ID</label>
+          <input value={id} onChange={e=>setId(e.target.value)} className="mt-1 w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Enter ID" required/>
+        </div>
+        <div>
+          <label className="text-sm font-medium text-slate-600">Password</label>
+          <input type="password" value={pass} onChange={e=>setPass(e.target.value)} className="mt-1 w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Enter password" required/>
+        </div>
+        {error && <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>}
+        <button disabled={loading} className="w-full py-2.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-500 transition flex items-center justify-center gap-2 disabled:opacity-60">
+          {loading && <Spinner/>}{loading ? 'Verifying...' : 'Login'}
+        </button>
+      </form>
+    </ModalShell>
+  );
+}
+
+function ProjectFormModal({lang, project, onClose, onSave}){
+  const isEdit = !!project;
+  const [title, setTitle] = useState(project ? project.title : '');
+  const [description, setDescription] = useState(project ? project.description : '');
+  const [code, setCode] = useState(project ? project.code : PLACEHOLDER_CODE[lang]);
+  const [saving, setSaving] = useState(false);
+  const info = LANGS[lang];
+  async function submit(e){
+    e.preventDefault();
+    if(!title.trim() || !code.trim()) return;
+    setSaving(true);
+    await onSave({title: title.trim(), description: description.trim(), code});
+    setSaving(false);
+  }
+  return (
+    <ModalShell onClose={onClose} width="max-w-2xl">
+      <h3 className="text-xl font-bold text-slate-800 mb-1 flex items-center gap-2">{info.icon} {isEdit ? 'Edit' : 'Add'} {info.name} Project</h3>
+      <p className="text-sm text-slate-500 mb-5">{isEdit ? 'Update the project details below.' : 'Fill in the details to add a new project.'}</p>
+      <form onSubmit={submit} className="space-y-4">
+        <div>
+          <label className="text-sm font-medium text-slate-600">Project Title</label>
+          <input value={title} onChange={e=>setTitle(e.target.value)} className="mt-1 w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="e.g. Fibonacci Generator" required/>
+        </div>
+        <div>
+          <label className="text-sm font-medium text-slate-600">Description</label>
+          <textarea value={description} onChange={e=>setDescription(e.target.value)} rows="2" className="mt-1 w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none"/>
+        </div>
+        <div>
+          <label className="text-sm font-medium text-slate-600">Source Code</label>
+          <textarea value={code} onChange={e=>setCode(e.target.value)} rows="10" spellCheck="false" className="mt-1 w-full px-3 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm bg-slate-900 text-emerald-300" required/>
+        </div>
+        <div className="flex gap-3 pt-2">
+          <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-600 font-medium hover:bg-slate-50">Cancel</button>
+          <button disabled={saving} className={`flex-1 py-2.5 rounded-xl text-white font-medium flex items-center justify-center gap-2 bg-gradient-to-r ${LANG_STYLES[lang].grad} hover:opacity-90 disabled:opacity-60`}>
+            {saving && <Spinner/>} {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Add Project'}
+          </button>
+        </div>
+      </form>
+    </ModalShell>
+  );
+}
+
+function DeleteConfirmModal({project, onClose, onConfirm}){
+  const [deleting, setDeleting] = useState(false);
+  async function confirm(){
+    setDeleting(true);
+    await onConfirm(project.id);
+    setDeleting(false);
+  }
+  return (
+    <ModalShell onClose={onClose} width="max-w-sm">
+      <div className="text-center">
+        <div className="w-14 h-14 mx-auto rounded-2xl bg-red-100 flex items-center justify-center text-red-600 mb-3"><TrashIcon big/></div>
+        <h3 className="text-lg font-bold text-slate-800">Delete "{project.title}"?</h3>
+        <p className="text-sm text-slate-500 mt-1">This cannot be undone. It will be removed for everyone.</p>
+        <div className="flex gap-3 mt-6">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-600 font-medium hover:bg-slate-50">Cancel</button>
+          <button disabled={deleting} onClick={confirm} className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-medium hover:bg-red-500 flex items-center justify-center gap-2 disabled:opacity-60">
+            {deleting && <Spinner/>} {deleting ? 'Deleting...' : 'Delete'}
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+function RunModal({project, onClose}){
+  const info = LANGS[project.language];
+  const [code, setCode] = useState(project.code);
+  const [editing, setEditing] = useState(false);
+  const [output, setOutput] = useState('');
+  const [running, setRunning] = useState(false);
+  const [bootingEngine, setBootingEngine] = useState(false);
+  const [tab, setTab] = useState('code');
+  const [hasRun, setHasRun] = useState(false);
+  const isPreviewLang = project.language==='html' || project.language==='css';
+
+  async function handleRun(){
+    setRunning(true); setHasRun(true); setTab('output'); setOutput('');
+    if(project.language === 'python'){
+      try {
+        if(!pyodideInstance) setBootingEngine(true);
+        const py = await getPyodide();
+        setBootingEngine(false);
+        let out = '';
+        py.setStdout({batched:(s)=>{ out += s + '\n'; }});
+        py.setStderr({batched:(s)=>{ out += s + '\n'; }});
+        try {
+          await py.runPythonAsync(code);
+          setOutput(out.trim() || '(no output)');
+        } catch(err){ setOutput((out?out+'\n':'') + '❌ ' + err.message); }
+      } catch(err){ setBootingEngine(false); setOutput('❌ ' + err.message); }
+    } else if(project.language === 'c'){
+      let out = '';
+      try {
+        if (typeof JSCPP === 'undefined') throw new Error('C compiler failed to load.');
+        const exitcode = JSCPP.run(code, '', {stdio:{write:(s)=>{ out += s; }}});
+        setOutput((out.trim() || '(no output)') + `\n\n[Exit code ${exitcode}]`);
+      } catch(err){ setOutput((out?out+'\n':'') + '❌ Error: ' + err.message); }
+    } else {
+      await new Promise(r=>setTimeout(r, 350));
+    }
+    setRunning(false);
+  }
+
+  return (
+    <ModalShell onClose={onClose} width="max-w-4xl">
+      <div className="flex items-center justify-between mb-4 pr-8">
+        <div>
+          <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">{info.icon} {project.title}</h3>
+          <p className="text-xs text-slate-500">{info.name} · {editing ? 'Sandbox mode' : 'Read only'}</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 mb-3 border-b border-slate-200">
+        <button onClick={()=>setTab('code')} className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${tab==='code'?'border-indigo-600 text-indigo-600':'border-transparent text-slate-500'}`}>Code</button>
+        <button onClick={()=>setTab('output')} className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${tab==='output'?'border-indigo-600 text-indigo-600':'border-transparent text-slate-500'}`}>{isPreviewLang ? 'Preview' : 'Output'}</button>
+        <div className="ml-auto flex items-center gap-2 pb-1.5">
+          <label className="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer select-none">
+            <input type="checkbox" checked={editing} onChange={e=>setEditing(e.target.checked)} className="rounded"/> Edit & Test
+          </label>
+          {editing && <button onClick={()=>setCode(project.code)} className="text-xs text-indigo-600 hover:underline">Reset</button>}
+        </div>
+      </div>
+      {tab==='code' ? (
+        editing ? (
+          <textarea value={code} onChange={e=>setCode(e.target.value)} spellCheck="false" rows="16" className="w-full font-mono text-sm bg-slate-900 text-emerald-300 rounded-xl p-4 outline-none"/>
+        ) : (
+          <pre className="w-full font-mono text-sm bg-slate-900 text-emerald-300 rounded-xl p-4 overflow-auto max-h-96 whitespace-pre-wrap">{code}</pre>
+        )
+      ) : (
+        <div className="bg-slate-950 rounded-xl overflow-hidden" style={{minHeight:'320px'}}>
+          {running && (
+            <div className="flex flex-col items-center justify-center h-80 text-slate-300 gap-3">
+              <Spinner big/>
+              <p className="text-sm">{bootingEngine ? 'Booting Python engine…' : 'Running your code…'}</p>
+            </div>
+          )}
+          {!running && !hasRun && (
+            <div className="flex flex-col items-center justify-center h-80 text-slate-500 gap-2">
+              <PlayIcon big/>
+              <p className="text-sm">Click "Run Code" to see {isPreviewLang ? 'preview' : 'output'}</p>
+            </div>
+          )}
+          {!running && hasRun && isPreviewLang && (
+            <iframe title="preview" srcDoc={code} sandbox="allow-scripts" className="w-full h-96 bg-white"></iframe>
+          )}
+          {!running && hasRun && !isPreviewLang && (
+            <pre className="p-4 text-sm font-mono text-emerald-300 whitespace-pre-wrap max-h-96 overflow-auto">{output}</pre>
+          )}
+        </div>
+      )}
+      <div className="flex items-center justify-between mt-4">
+        <span className="text-xs text-slate-400">
+          Powered by {project.language==='python' ? 'Pyodide' : project.language==='c' ? 'JSCPP' : 'Live Renderer'}
+        </span>
+        <button onClick={handleRun} disabled={running} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-medium bg-gradient-to-r ${LANG_STYLES[project.language].grad} hover:opacity-90 disabled:opacity-60`}>
+          {running ? <Spinner/> : <PlayIcon/>} {running ? 'Running...' : 'Run Code'}
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+function SectionView({lang, projects, loading, isAdmin, onAdd, onRun, onEdit, onDelete}){
+  const info = LANGS[lang];
+  const style = LANG_STYLES[lang];
+  const list = projects.filter(p=>p.language===lang).sort((a,b)=> new Date(b.updatedAt)-new Date(a.updatedAt));
+  return (
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">{info.icon} {info.name} Projects</h2>
+          <p className="text-slate-500 text-sm mt-1">{list.length} project{list.length!==1?'s':''}</p>
+        </div>
+        {isAdmin && (
+          <button onClick={onAdd} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r ${style.grad} text-white font-medium shadow-sm hover:opacity-90 transition`}>
+            <PlusIcon/> Add Project
+          </button>
+        )}
+      </div>
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">{[1,2,3].map(i=><CardSkeleton key={i}/>)}</div>
+      ) : list.length === 0 ? (
+        <EmptyState lang={lang} isAdmin={isAdmin} onAdd={onAdd}/>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {list.map(p=><ProjectCard key={p.id} project={p} isAdmin={isAdmin} onRun={onRun} onEdit={onEdit} onDelete={onDelete}/>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Dashboard({projects, loading, counts, onNavigate, onRun}){
+  const recent = [...projects].sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt)).slice(0,5);
+  return (
+    <div>
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-2xl p-8 text-white mb-8 shadow-lg">
+        <h1 className="text-3xl font-bold mb-2">Welcome to PCHP 🚀</h1>
+        <p className="text-white/80 max-w-xl">Your hub for Python, C, HTML and CSS mini-projects -- live synced via Firebase.</p>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mb-8">
+        {Object.keys(LANGS).map(lang=>(
+          <button key={lang} onClick={()=>onNavigate(lang)} className="bg-white rounded-2xl border border-slate-200 p-5 text-left hover:shadow-lg hover:-translate-y-0.5 transition-all">
+            <div className="text-3xl mb-2">{LANGS[lang].icon}</div>
+            <div className="text-2xl font-bold text-slate-800">{loading ? '–' : counts[lang]}</div>
+            <div className="text-sm text-slate-500">{LANGS[lang].name} projects</div>
+          </button>
+        ))}
+      </div>
+      <div className="bg-white rounded-2xl border border-slate-200 p-6">
+        <h3 className="font-semibold text-slate-800 mb-4">Recently Updated</h3>
+        {loading ? (
+          <div className="space-y-3">{[1,2,3].map(i=><div key={i} className="h-14 bg-slate-100 rounded-xl animate-pulse"/>)}</div>
+        ) : recent.length===0 ? (
+          <p className="text-slate-400 text-sm">No projects yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {recent.map(p=>(
+              <div key={p.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className={`text-xs font-semibold px-2 py-1 rounded-full border ${LANG_STYLES[p.language].badge} shrink-0`}>{LANGS[p.language].icon}</span>
+                  <div className="min-w-0">
+                    <div className="font-medium text-slate-700 truncate">{p.title}</div>
+                    <div className="text-xs text-slate-400">Updated {formatDate(p.updatedAt)}</div>
+                  </div>
+                </div>
+                <button onClick={()=>onRun(p)} className="shrink-0 flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-700"><PlayIcon/> Run</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Sidebar({section, onNavigate, isAdmin, onLoginClick, onLogout, open, setOpen, counts, loading}){
+  const nav = [
+    {id:'dashboard', label:'Dashboard', icon:<HomeIcon/>},
+    {id:'python', label:'Python', icon:<span>🐍</span>},
+    {id:'c', label:'C', icon:<span>🔧</span>},
+    {id:'html', label:'HTML', icon:<span>🌐</span>},
+    {id:'css', label:'CSS', icon:<span>🎨</span>},
+  ];
+  return (
+    <>
+      {open && <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={()=>setOpen(false)}></div>}
+      <aside className={`fixed lg:static z-40 top-0 left-0 h-full w-64 bg-slate-900 text-slate-300 flex flex-col transition-transform duration-300 ${open?'translate-x-0':'-translate-x-full'} lg:translate-x-0`}>
+        <div className="flex items-center gap-2 px-6 py-5 border-b border-slate-800">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-white">P</div>
+          <div>
+            <div className="font-bold text-white leading-tight">PCHP</div>
+            <div className="text-[11px] text-slate-500">🔥 Live via Firebase</div>
+          </div>
+          <button className="ml-auto lg:hidden text-slate-400" onClick={()=>setOpen(false)}><XIcon/></button>
+        </div>
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          {nav.map(item=>(
+            <button key={item.id} onClick={()=>{onNavigate(item.id); setOpen(false);}}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${section===item.id ? 'bg-white/10 text-white' : 'hover:bg-white/5 hover:text-white'}`}>
+              <span className="text-lg">{item.icon}</span>
+              <span className="flex-1 text-left">{item.label}</span>
+              {item.id!=='dashboard' && !loading && (
+                <span className="text-[11px] bg-white/10 px-1.5 py-0.5 rounded-full">{counts[item.id]}</span>
+              )}
+            </button>
+          ))}
+        </nav>
+        <div className="p-3 border-t border-slate-800">
+          {isAdmin ? (
+            <div className="bg-white/5 rounded-xl p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-sm">K</div>
+                <div>
+                  <div className="text-sm font-semibold text-white">kamaji</div>
+                  <div className="text-[11px] text-emerald-400">Admin Mode</div>
+                </div>
+              </div>
+              <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 text-xs font-medium py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition"><LogOutIcon/> Logout</button>
+            </div>
+          ) : (
+            <button onClick={onLoginClick} className="w-full flex items-center justify-center gap-2 text-sm font-medium py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition"><LockIcon/> Admin Login</button>
+          )}
+        </div>
+      </aside>
+    </>
+  );
+}
+
+function TopBar({onMenuClick, section}){
+  const title = section==='dashboard' ? 'Dashboard' : (LANGS[section] ? LANGS[section].name + ' Projects' : '');
+  return (
+    <div className="lg:hidden sticky top-0 z-20 bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3">
+      <button onClick={onMenuClick} className="text-slate-600"><MenuIcon/></button>
+      <span className="font-semibold text-slate-800">{title}</span>
+    </div>
+  );
+}
+
+function App(){
+  const [loading, setLoading] = useState(true);
+  const [projects, setProjects] = useState([]);
+  const [section, setSection] = useState('dashboard');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [modal, setModal] = useState(null);
+  const [runProject, setRunProject] = useState(null);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [toasts, setToasts] = useState([]);
+
+  useEffect(()=>{
+    let unsub = () => {};
+    (async () => {
+      try { await seedIfEmptyOnce(); } catch(err){ console.error('Seeding failed:', err); }
+      unsub = db.collection('projects').onSnapshot(
+        (snapshot) => {
+          const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setProjects(list);
+          setLoading(false);
+        },
+        (err) => { console.error(err); setLoading(false); pushToast('Failed to load: ' + err.message, 'error'); }
+      );
+    })();
+    return () => unsub();
+  }, []);
+
+  useEffect(()=>{
+    const unsub = auth.onAuthStateChanged(user => setIsAdmin(!!user));
+    return () => unsub();
+  }, []);
+
+  const counts = useMemo(()=>{
+    const c = {python:0, c:0, html:0, css:0};
+    projects.forEach(p=>{ if(c[p.language]!==undefined) c[p.language]++; });
+    return c;
+  }, [projects]);
+
+  function pushToast(msg, type='success'){
+    const id = Date.now()+Math.random();
+    setToasts(t=>[...t, {id, msg, type}]);
+    setTimeout(()=> setToasts(t=>t.filter(x=>x.id!==id)), 3000);
+  }
+
+  async function handleAdd(lang, data){
+    try {
+      await db.collection('projects').add({
+        language: lang, title: data.title, description: data.description, code: data.code,
+        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      });
+      pushToast(`"${data.title}" added & saved`);
+    } catch(err){ pushToast('Failed to add: ' + err.message, 'error'); }
+    setModal(null);
+  }
+
+  async function handleEdit(id, data){
+    try {
+      await db.collection('projects').doc(id).update({
+        title: data.title, description: data.description, code: data.code, updatedAt: new Date().toISOString(),
+      });
+      pushToast('Project updated & saved');
+    } catch(err){ pushToast('Failed to update: ' + err.message, 'error'); }
+    setModal(null);
+  }
+
+  async function handleDelete(id){
+    const proj = projects.find(p=>p.id===id);
+    try {
+      await db.collection('projects').doc(id).delete();
+      pushToast(`"${proj ? proj.title : 'Project'}" deleted`);
+    } catch(err){ pushToast('Failed to delete: ' + err.message, 'error'); }
+    setConfirmDelete(null);
+  }
+
+  async function handleLogin(id, pass){
+    if(id !== 'kamaji'){ pushToast('Invalid credentials', 'error'); return false; }
+    try {
+      await auth.signInWithEmailAndPassword(ADMIN_EMAIL, pass);
+      pushToast('Welcome back, Admin!');
+      setLoginOpen(false);
+      return true;
+    } catch(err){ pushToast('Invalid credentials', 'error'); return false; }
+  }
+
+  async function handleLogout(){ await auth.signOut(); pushToast('Logged out'); }
+
+  return (
+    <div className="min-h-screen flex bg-slate-50">
+      <Sidebar section={section} onNavigate={setSection} isAdmin={isAdmin}
+        onLoginClick={()=>setLoginOpen(true)} onLogout={handleLogout}
+        open={sidebarOpen} setOpen={setSidebarOpen} counts={counts} loading={loading}/>
+      <div className="flex-1 min-w-0 flex flex-col">
+        <TopBar onMenuClick={()=>setSidebarOpen(true)} section={section}/>
+        <main className="flex-1 p-5 lg:p-8 max-w-6xl w-full mx-auto">
+          {section==='dashboard' ? (
+            <Dashboard projects={projects} loading={loading} counts={counts} onNavigate={setSection} onRun={setRunProject}/>
+          ) : (
+            <SectionView lang={section} projects={projects} loading={loading} isAdmin={isAdmin}
+              onAdd={()=>setModal({type:'add', lang:section})} onRun={setRunProject}
+              onEdit={(p)=>setModal({type:'edit', lang:p.language, project:p})} onDelete={setConfirmDelete}/>
+          )}
+        </main>
+        <footer className="text-center text-xs text-slate-400 py-4">PCHP -- Python · C · HTML · CSS Project Hub · 🔥 Realtime via Firebase</footer>
+      </div>
+      {modal && (
+        <ProjectFormModal lang={modal.lang} project={modal.project} onClose={()=>setModal(null)}
+          onSave={(data)=> modal.type==='add' ? handleAdd(modal.lang, data) : handleEdit(modal.project.id, data)}/>
+      )}
+      {runProject && <RunModal project={runProject} onClose={()=>setRunProject(null)}/>}
+      {loginOpen && <LoginModal onClose={()=>setLoginOpen(false)} onLogin={handleLogin}/>}
+      {confirmDelete && <DeleteConfirmModal project={confirmDelete} onClose={()=>setConfirmDelete(null)} onConfirm={handleDelete}/>}
+      <ToastStack toasts={toasts}/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
